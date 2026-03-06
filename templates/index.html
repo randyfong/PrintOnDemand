@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PrintOnDemand — Staples Self-Print Service</title>
+  <meta name="description" content="Upload a PDF and get your Staples release code delivered straight to your inbox." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0a0c12;
+      --surface: #12151f;
+      --surface2: #1a1e2e;
+      --border: rgba(255, 255, 255, 0.07);
+      --accent: #6c63ff;
+      --accent2: #a855f7;
+      --accent-glow: rgba(108, 99, 255, 0.35);
+      --success: #22c55e;
+      --error: #ef4444;
+      --text: #f0f0f5;
+      --muted: #8b8fa8;
+      --radius: 16px;
+    }
+
+    html,
+    body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 0%, rgba(108, 99, 255, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(168, 85, 247, 0.10) 0%, transparent 55%),
+        var(--bg);
+    }
+
+    /* ─── Release Code Modal ─── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      border-radius: 28px;
+      padding: 48px 40px;
+      text-align: center;
+      max-width: 420px;
+      width: calc(100% - 48px);
+      box-shadow: 0 0 80px rgba(34, 197, 94, 0.15), 0 32px 80px rgba(0, 0, 0, 0.5);
+      transform: scale(0.85);
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .modal-overlay.open .modal {
+      transform: scale(1);
+    }
+
+    .modal-badge {
+      width: 72px;
+      height: 72px;
+      background: rgba(34, 197, 94, 0.15);
+      border: 2px solid var(--success);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      margin: 0 auto 20px;
+      animation: pulse-ring 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-ring {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+      }
+
+      50% {
+        box-shadow: 0 0 0 12px rgba(34, 197, 94, 0);
+      }
+    }
+
+    .modal-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .modal-subtitle {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    .release-code-display {
+      background: var(--surface2);
+      border: 1px solid rgba(34, 197, 94, 0.25);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .release-code-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .release-code-value {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: 6px;
+      color: var(--success);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+
+    .btn-copy {
+      width: 100%;
+      padding: 13px;
+      background: rgba(34, 197, 94, 0.12);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      border-radius: 12px;
+      color: var(--success);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 12px;
+    }
+
+    .btn-copy:hover {
+      background: rgba(34, 197, 94, 0.2);
+    }
+
+    .btn-copy:active {
+      transform: scale(0.98);
+    }
+
+    .btn-dismiss {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .btn-dismiss:hover {
+      color: var(--text);
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 48px 48px;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 560px;
+      padding: 24px;
+    }
+
+    /* ─── Header ─── */
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 36px;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 24px var(--accent-glow);
+    }
+
+    .logo-text h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      background: linear-gradient(120deg, #fff 30%, #a78bfa);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-text p {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    /* ─── Card ─── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 36px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(16px);
+    }
+
+    .card-title {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    .card-subtitle {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    /* ─── Drop Zone ─── */
+    .drop-zone {
+      border: 2px dashed rgba(108, 99, 255, 0.35);
+      border-radius: var(--radius);
+      padding: 40px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      background: rgba(108, 99, 255, 0.04);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(108, 99, 255, 0.1);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+
+    .drop-zone.has-file {
+      border-color: var(--success);
+      border-style: solid;
+      background: rgba(34, 197, 94, 0.06);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+
+    .drop-zone:hover .drop-icon {
+      transform: translateY(-4px);
+    }
+
+    .drop-label {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .drop-hint {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .drop-hint span {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .file-chosen {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .file-tag {
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: var(--success);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-clear {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 2px 6px;
+      border-radius: 6px;
+      transition: color 0.2s, background 0.2s;
+    }
+
+    .file-clear:hover {
+      color: var(--error);
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    /* ─── Input fields ─── */
+    .field {
+      margin-top: 24px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    input[type="email"] {
+      width: 100%;
+      padding: 14px 18px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="email"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    input[type="email"]::placeholder {
+      color: var(--muted);
+    }
+
+    /* ─── Submit Button ─── */
+    .btn-submit {
+      margin-top: 28px;
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: var(--radius);
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+      letter-spacing: 0.2px;
+      box-shadow: 0 8px 32px var(--accent-glow);
+    }
+
+    .btn-submit::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), transparent);
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px var(--accent-glow);
+    }
+
+    .btn-submit:hover::before {
+      opacity: 1;
+    }
+
+    .btn-submit:active {
+      transform: translateY(0);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ─── Status messages ─── */
+    #status {
+      margin-top: 20px;
+      border-radius: var(--radius);
+      padding: 0;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease, padding 0.3s ease, opacity 0.3s;
+      opacity: 0;
+    }
+
+    #status.visible {
+      max-height: 200px;
+      padding: 16px 20px;
+      opacity: 1;
+    }
+
+    #status.info {
+      background: rgba(108, 99, 255, 0.12);
+      border: 1px solid rgba(108, 99, 255, 0.3);
+    }
+
+    #status.success {
+      background: rgba(34, 197, 94, 0.10);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    #status.error {
+      background: rgba(239, 68, 68, 0.10);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .status-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .status-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .status-text b {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .status-text span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* ─── Spinner ─── */
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ─── Steps indicator ─── */
+    .steps {
+      display: flex;
+      gap: 4px;
+      margin-top: 28px;
+    }
+
+    .step {
+      flex: 1;
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 4px;
+      transition: background 0.4s ease;
+    }
+
+    .step.active {
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .step.done {
+      background: var(--success);
+    }
+
+    /* ─── Footer ─── */
+    .footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="page">
+    <div class="logo">
+      <div class="logo-icon">🖨️</div>
+      <div class="logo-text">
+        <h1>PrintOnDemand</h1>
+        <p>Powered by Staples × CrewAI</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Print your document</div>
+      <p class="card-subtitle">Upload a PDF and we'll send it to Staples. Your pick-up code arrives in your inbox in
+        under a minute.</p>
+
+      <form id="printForm" enctype="multipart/form-data" novalidate>
+
+        <!-- PDF Upload -->
+        <div class="field">
+          <label for="pdfFile">📄 PDF Document</label>
+          <div class="drop-zone" id="dropZone">
+            <input type="file" id="pdfFile" name="pdf" accept=".pdf" required />
+            <span class="drop-icon">☁️</span>
+            <div class="drop-label">Drop your PDF here</div>
+            <div class="drop-hint">or <span>browse files</span> · PDF only</div>
+            <div class="file-chosen" id="fileChosen">
+              <span class="file-tag" id="fileName"></span>
+              <button type="button" class="file-clear" id="clearFile" title="Remove">✕</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Email -->
+        <div class="field">
+          <label for="userEmail">📧 Your Email Address</label>
+          <input type="email" id="userEmail" name="email" placeholder="you@example.com" autocomplete="email" required />
+        </div>
+
+        <!-- Progress steps -->
+        <div class="steps">
+          <div class="step" id="step1"></div>
+          <div class="step" id="step2"></div>
+          <div class="step" id="step3"></div>
+          <div class="step" id="step4"></div>
+        </div>
+
+        <!-- Status message -->
+        <div id="status"></div>
+
+        <!-- Submit -->
+        <button type="submit" class="btn-submit" id="submitBtn">
+          🚀 Send to Staples
+        </button>
+      </form>
+    </div>
+
+    <div class="footer">
+      Your PDF is deleted from our server immediately after sending. &nbsp;|&nbsp;
+      <a href="https://github.com/randyfong/PrintOnDemand" target="_blank">GitHub</a>
+    </div>
+  </div>
+
+  <!-- Release Code Modal -->
+  <div class="modal-overlay" id="codeModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal">
+      <div class="modal-badge">🖨️</div>
+      <div class="modal-title" id="modalTitle">Document Ready!</div>
+      <p class="modal-subtitle">Your Staples release code has been sent to your email and is shown below.</p>
+      <div class="release-code-display">
+        <div class="release-code-label">Release Code</div>
+        <div class="release-code-value" id="releaseCodeValue">--------</div>
+      </div>
+      <button class="btn-copy" id="copyBtn" onclick="copyCode()">📋 Copy Code</button>
+      <br />
+      <button class="btn-dismiss" onclick="closeModal()">Dismiss</button>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('printForm');
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('pdfFile');
+    const fileChosen = document.getElementById('fileChosen');
+    const fileName = document.getElementById('fileName');
+    const clearBtn = document.getElementById('clearFile');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusEl = document.getElementById('status');
+    const steps = [1, 2, 3, 4].map(n => document.getElementById('step' + n));
+
+    // ── Drag & Drop ──────────────────────────
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type === 'application/pdf') setFile(file);
+      else showStatus('error', '❌', 'Invalid file', 'Please select a PDF file (.pdf).');
+    });
+
+    // ── File selection ────────────────────────
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) setFile(fileInput.files[0]);
+    });
+
+    function setFile(file) {
+      // Swap the file input's files via DataTransfer trick
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileInput.files = dt.files;
+
+      fileName.textContent = file.name;
+      fileChosen.style.display = 'flex';
+      dropZone.querySelector('.drop-icon').style.display = 'none';
+      dropZone.querySelector('.drop-label').style.display = 'none';
+      dropZone.querySelector('.drop-hint').style.display = 'none';
+      dropZone.classList.add('has-file');
+      clearStatus();
+    }
+
+    clearBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      fileInput.value = '';
+      fileChosen.style.display = 'none';
+      dropZone.querySelector('.drop-icon').style.display = '';
+      dropZone.querySelector('.drop-label').style.display = '';
+      dropZone.querySelector('.drop-hint').style.display = '';
+      dropZone.classList.remove('has-file');
+    });
+
+    // ── Steps ────────────────────────────────
+    function setStep(n) {
+      steps.forEach((s, i) => {
+        s.className = 'step' + (i < n - 1 ? ' done' : i === n - 1 ? ' active' : '');
+      });
+    }
+
+    // ── Status messages ───────────────────────
+    function showStatus(type, icon, title, detail) {
+      statusEl.className = 'visible ' + type;
+      statusEl.innerHTML = `
+      <div class="status-row">
+        <div class="status-icon">${icon}</div>
+        <div class="status-text"><b>${title}</b><span>${detail}</span></div>
+      </div>`;
+    }
+
+    function clearStatus() {
+      statusEl.className = '';
+      statusEl.innerHTML = '';
+    }
+
+    // ── Release Code Modal ────────────────────────
+    const modal = document.getElementById('codeModal');
+    const codeEl = document.getElementById('releaseCodeValue');
+    const copyBtn = document.getElementById('copyBtn');
+    let lastCode = '';
+
+    function showReleaseCode(code) {
+      lastCode = code;
+      codeEl.textContent = code;
+      modal.classList.add('open');
+      // Trap focus inside modal
+      copyBtn.focus();
+    }
+
+    function closeModal() {
+      modal.classList.remove('open');
+    }
+
+    function copyCode() {
+      navigator.clipboard.writeText(lastCode).then(() => {
+        copyBtn.textContent = '✅ Copied!';
+        setTimeout(() => { copyBtn.textContent = '📋 Copy Code'; }, 2000);
+      });
+    }
+
+    // Close on backdrop click
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+    // Close on Escape
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    // ── Form submit ───────────────────────────
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+
+      const email = document.getElementById('userEmail').value.trim();
+      if (!fileInput.files.length) {
+        showStatus('error', '⚠️', 'No file selected', 'Please choose a PDF to print.');
+        return;
+      }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showStatus('error', '⚠️', 'Invalid email', 'Please enter a valid email address.');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner"></span>Sending to Staples…';
+      setStep(1);
+      showStatus('info', '📤', 'Uploading PDF', 'Sending your document to Staples…');
+
+      const formData = new FormData();
+      formData.append('pdf', fileInput.files[0]);
+      formData.append('email', email);
+
+      try {
+        // Phase 1: upload PDF + start agent (returns immediately with job_id)
+        setStep(2);
+        const res = await fetch('/print', { method: 'POST', body: formData });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Server error' }));
+          throw new Error(err.error || 'Unexpected error');
+        }
+        const { job_id } = await res.json();
+        setStep(3);
+        submitBtn.innerHTML = '<span class="spinner"></span>Waiting for Staples…';
+        showStatus('info', '📬', 'Waiting for Staples', 'PDF sent! Monitoring inbox for your release code…');
+
+        // Phase 2: poll /status/<job_id> until done or error
+        await pollUntilDone(job_id, email);
+
+      } catch (err) {
+        steps.forEach(s => s.className = 'step');
+        showStatus('error', '❌', 'Something went wrong', err.message || 'Please try again.');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '🚀 Send to Staples';
+      }
+    });
+
+    async function pollUntilDone(job_id, email) {
+      const POLL_INTERVAL = 3000;  // 3 seconds
+      const MAX_WAIT = 180000;     // 3 minutes max
+      const started = Date.now();
+
+      while (Date.now() - started < MAX_WAIT) {
+        await new Promise(r => setTimeout(r, POLL_INTERVAL));
+
+        let job;
+        try {
+          const r = await fetch(`/status/${job_id}`);
+          job = await r.json();
+        } catch (_) { continue; }
+
+        if (job.status === 'done') {
+          setStep(4);
+          if (job.release_code) {
+            setTimeout(() => {
+              showReleaseCode(job.release_code);
+            }, 5000);
+            showStatus('success', '✅', 'Release code received!',
+              `Code sent to ${email} and shown on screen.`);
+          } else {
+            showStatus('success', '✅', 'Done!',
+              `Your request was processed. Check ${email} for the release code.`);
+          }
+          submitBtn.innerHTML = '✅ Done!';
+          return;
+        }
+
+        if (job.status === 'error') {
+          throw new Error(job.error || 'Agent encountered an error.');
+        }
+        // status === 'pending' → keep polling
+      }
+      throw new Error('Timed out waiting for Staples reply. Check your email.');
+    }
+  </script>
+</body>
+
+</html>

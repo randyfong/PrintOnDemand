@@ -1,10 +1,46 @@
 import os
+import logging
+from logging.handlers import RotatingFileHandler
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process
 from tools import SendEmailTool, WaitAndExtractReleaseCodeTool
 
 # Load environment variables from .env
 load_dotenv()
+
+def setup_logging():
+    """Configure logging for CrewAI agents to console + rotating log file."""
+    log_format = logging.Formatter(
+        '[%(asctime)s] %(levelname)s %(name)s — %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+    # Root logger — catches everything
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+
+    # Console handler (INFO and above)
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    console.setFormatter(log_format)
+
+    # Rotating file handler — keeps last 3 × 5 MB logs
+    file_handler = RotatingFileHandler(
+        'crew.log', maxBytes=5 * 1024 * 1024, backupCount=3
+    )
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(log_format)
+
+    root.addHandler(console)
+    root.addHandler(file_handler)
+
+    # Enable verbose logging from CrewAI's own logger
+    for name in ('crewai', 'langchain', 'openai', 'httpx'):
+        logging.getLogger(name).setLevel(logging.DEBUG)
+
+    logging.info('CrewAI logging initialised — writing to crew.log')
+
+setup_logging()
 
 # Define the Specialist
 print_specialist = Agent(
@@ -20,7 +56,8 @@ print_specialist = Agent(
     ),
     tools=[SendEmailTool(), WaitAndExtractReleaseCodeTool()],
     verbose=True,
-    allow_delegation=False
+    allow_delegation=False,
+    llm="gpt-4o-mini"
 )
 
 # Define the Task
@@ -40,6 +77,8 @@ def create_print_task(pdf_path, user_email):
     )
 
 def run_print_flow(pdf_path, user_email):
+    logger = logging.getLogger(__name__)
+    logger.info(f'Starting print flow — pdf={pdf_path} email={user_email}')
     task = create_print_task(pdf_path, user_email)
     crew = Crew(
         agents=[print_specialist],
@@ -48,6 +87,7 @@ def run_print_flow(pdf_path, user_email):
         verbose=True
     )
     result = crew.kickoff()
+    logger.info(f'Print flow complete — result: {str(result)[:200]}')
     return result
 
 if __name__ == "__main__":
