@@ -617,6 +617,13 @@
           <input type="email" id="userEmail" name="email" placeholder="you@example.com" autocomplete="email" required />
         </div>
 
+        <!-- Nevermined Token -->
+        <div class="field" id="tokenField" style="display: none;">
+          <label for="nvmToken">🔑 Payment Token (x402)</label>
+          <input type="text" id="nvmToken" name="nvmToken" placeholder="Paste your Access Token here after purchase..."
+            style="width: 100%; padding: 14px 18px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: 'Inter', sans-serif; font-size: 15px; outline: none;" />
+        </div>
+
         <!-- Progress steps -->
         <div class="steps">
           <div class="step" id="step1"></div>
@@ -666,6 +673,8 @@
     const clearBtn = document.getElementById('clearFile');
     const submitBtn = document.getElementById('submitBtn');
     const statusEl = document.getElementById('status');
+    const tokenField = document.getElementById('tokenField');
+    const tokenInput = document.getElementById('nvmToken');
     const steps = [1, 2, 3, 4].map(n => document.getElementById('step' + n));
 
     // ── Drag & Drop ──────────────────────────
@@ -787,8 +796,32 @@
       try {
         // Phase 1: upload PDF + start agent (returns immediately with job_id)
         setStep(2);
-        const res = await fetch('/print', { method: 'POST', body: formData });
+
+        const headers = {};
+        if (tokenInput.value) {
+          headers['payment-signature'] = tokenInput.value;
+        }
+
+        const res = await fetch('/print', {
+          method: 'POST',
+          body: formData,
+          headers: headers
+        });
+
         if (!res.ok) {
+          if (res.status === 402) {
+            const data = await res.json();
+            const planId = data.planId;
+            const paymentUrl = `https://nevermined.app/plan/${planId}`;
+
+            // Reveal token field
+            tokenField.style.display = 'block';
+
+            showStatus('error', '💳', 'Payment Required',
+              `Please <a href="${paymentUrl}" target="_blank" style="color: var(--accent); font-weight: 600;">purchase print credits</a> to continue. Once purchased, paste your access token above and retry.`
+            );
+            throw new Error('Payment Required');
+          }
           const err = await res.json().catch(() => ({ error: 'Server error' }));
           throw new Error(err.error || 'Unexpected error');
         }
@@ -801,8 +834,12 @@
         await pollUntilDone(job_id, email);
 
       } catch (err) {
-        steps.forEach(s => s.className = 'step');
-        showStatus('error', '❌', 'Something went wrong', err.message || 'Please try again.');
+        if (err.message !== 'Payment Required') {
+          steps.forEach(s => s.className = 'step');
+          showStatus('error', '❌', 'Something went wrong', err.message || 'Please try again.');
+        } else {
+          steps.forEach(s => s.className = 'step');
+        }
         submitBtn.disabled = false;
         submitBtn.innerHTML = '🚀 Send to Staples';
       }

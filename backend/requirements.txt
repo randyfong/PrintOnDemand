@@ -1,0 +1,5 @@
+Flask>=3.0.0
+crewai>=0.20.0
+python-dotenv>=1.0.0
+langchain-openai>=0.1.0
+payments_py>=1.0.0

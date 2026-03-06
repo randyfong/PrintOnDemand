@@ -13,16 +13,32 @@ os.environ["CREWAI_TESTING"] = "true"
 # Import agent at startup so logging is initialised once
 from staples_agent import run_print_flow  # noqa: E402
 
+from payments_py import Payments, PaymentOptions
+from payments_py.x402.helpers import build_payment_required
+import base64
+
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB
 
+# Initialize Nevermined Payments
+try:
+    payments = Payments.get_instance(
+        PaymentOptions(nvm_api_key=os.environ.get("NVM_API_KEY", ""), environment="sandbox")
+    )
+except Exception as e:
+    logger.error(f"Failed to initialize Nevermined Payments: {e}")
+    payments = None
+
+NVM_AGENT_ID = os.environ.get("NVM_AGENT_ID", "")
+NVM_PLAN_ID = os.environ.get("NVM_PLAN_ID", "")
+
 # In-memory job store  {job_id: {"status": "pending"|"done"|"error", "release_code": ..., "error": ...}}
 jobs = {}
 
 
-def _run_agent(job_id, pdf_path, email):
+def _run_agent(job_id, pdf_path, email, payment_required=None, access_token=None):
     """Run the CrewAI agent in a background thread and update the job store."""
     try:
         result = run_print_flow(pdf_path, email)
@@ -44,6 +60,21 @@ def _run_agent(job_id, pdf_path, email):
             'release_code': release_code,
             'result': result_str,
         }
+
+        # Settle the payment
+        if payments and payment_required and access_token:
+            try:
+                settlement = payments.facilitator.settle_permissions(
+                    payment_required=payment_required,
+                    x402_access_token=access_token,
+                    max_amount="1"
+                )
+                if settlement.success:
+                    logger.info(f"Payment settled successfully. Credits used: {settlement.credits_redeemed}")
+                else:
+                    logger.error("Payment settlement returned false.")
+            except Exception as e:
+                logger.error(f"Error settling payment: {str(e)}")
     except Exception as e:
         logger.exception(f'Job {job_id} failed')
         jobs[job_id] = {'status': 'error', 'error': str(e)}
@@ -71,6 +102,36 @@ def print_document():
     if not email or '@' not in email:
         return jsonify({'error': 'A valid email address is required.'}), 400
 
+    if payments and NVM_PLAN_ID and NVM_AGENT_ID:
+        payment_required_obj = build_payment_required(
+            plan_id=NVM_PLAN_ID,
+            endpoint=request.url,
+            agent_id=NVM_AGENT_ID,
+            http_verb=request.method
+        )
+        
+        access_token = request.headers.get('payment-signature', '')
+        if not access_token:
+            pr_base64 = base64.b64encode(
+                payment_required_obj.model_dump_json(by_alias=True).encode()
+            ).decode()
+            return jsonify({'error': 'Payment Required', 'planId': NVM_PLAN_ID}), 402, {'payment-required': pr_base64}
+        
+        try:
+            verification = payments.facilitator.verify_permissions(
+                payment_required=payment_required_obj,
+                x402_access_token=access_token,
+                max_amount="1"
+            )
+            if not verification.is_valid:
+                return jsonify({'error': f'Payment verification failed: {verification.invalid_reason}'}), 402
+        except Exception as e:
+            return jsonify({'error': f'Payment verification error: {str(e)}'}), 402
+    else:
+        payment_required_obj = None
+        access_token = None
+        logger.warning("Nevermined Payments not initialized. Bypassing payment check.")
+
     # Save to temp file
     with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
         pdf_path = tmp.name
@@ -80,7 +141,7 @@ def print_document():
     jobs[job_id] = {'status': 'pending'}
     logger.info(f'Job {job_id} started — file={pdf_file.filename!r} email={email!r}')
 
-    thread = threading.Thread(target=_run_agent, args=(job_id, pdf_path, email), daemon=True)
+    thread = threading.Thread(target=_run_agent, args=(job_id, pdf_path, email, payment_required_obj, access_token), daemon=True)
     thread.start()
 
     # Return immediately — browser will poll /status/<job_id>

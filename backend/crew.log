@@ -1,0 +1,22 @@
+[2026-03-05 19:27:17] INFO root — CrewAI logging initialised — writing to crew.log
+[2026-03-05 19:27:17] INFO werkzeug — [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://172.24.1.146:8080
+[2026-03-05 19:27:17] INFO werkzeug — [33mPress CTRL+C to quit[0m
+[2026-03-05 19:32:40] INFO root — CrewAI logging initialised — writing to crew.log
+[2026-03-05 19:32:40] ERROR __main__ — Failed to initialize Nevermined Payments: Invalid NVM API Key: not enough values to unpack (expected 2, got 1)
+[2026-03-05 19:32:40] INFO werkzeug — [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://172.24.1.146:8080
+[2026-03-05 19:32:40] INFO werkzeug — [33mPress CTRL+C to quit[0m
+[2026-03-05 19:34:57] INFO root — CrewAI logging initialised — writing to crew.log
+[2026-03-05 19:34:58] INFO werkzeug — [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://172.24.1.146:8080
+[2026-03-05 19:34:58] INFO werkzeug — [33mPress CTRL+C to quit[0m
+[2026-03-05 19:35:08] INFO werkzeug — 127.0.0.1 - - [05/Mar/2026 19:35:08] "[31m[1mPOST /print HTTP/1.1[0m" 402 -
+[2026-03-05 19:35:53] INFO werkzeug — 127.0.0.1 - - [05/Mar/2026 19:35:53] "GET / HTTP/1.1" 200 -
+[2026-03-05 19:36:31] INFO werkzeug — 127.0.0.1 - - [05/Mar/2026 19:36:31] "[31m[1mPOST /print HTTP/1.1[0m" 402 -
